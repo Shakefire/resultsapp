@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { authenticateRequest, supabaseClients } from '../../../lib/auth.js';
-import { createUploadUrl } from '../../../lib/r2.js';
+import { createUploadUrl, withEvidencePrefix } from '../../../lib/r2.js';
 import { sendError, setCorsHeaders } from '../../../lib/http.js';
 
 const rules = {
@@ -58,7 +58,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   const extension = rule.extension;
-  const key = `${purpose === 'voter_register' ? 'registers' : 'elections'}/${electionId ?? 'unassigned'}/${profile.state_code}/${profile.lga_code}/${profile.ward_code}/${profile.polling_unit_code}/${authUser.id}/${randomUUID()}.${extension}`;
+  const key = withEvidencePrefix(`${purpose === 'voter_register' ? 'registers' : 'elections'}/${electionId ?? 'unassigned'}/${profile.state_code}/${profile.lga_code}/${profile.ward_code}/${profile.polling_unit_code}/${authUser.id}/${randomUUID()}.${extension}`);
   try {
     const uploadUrl = await createUploadUrl(key, rule.contentType);
     const { error: grantError } = await adminClient.from('evidence_upload_grants').insert({

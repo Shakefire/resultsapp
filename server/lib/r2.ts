@@ -8,6 +8,16 @@ function requiredEnv(name: string): string {
 }
 
 export const evidenceBucket = () => requiredEnv('R2_BUCKET_NAME');
+
+export function withEvidencePrefix(key: string): string {
+  const prefix = (process.env.R2_KEY_PREFIX ?? 'inecresults/').trim();
+  const segments = prefix.split('/').filter(Boolean);
+  if (!segments.length || segments.some((segment) => segment === '.' || segment === '..')) {
+    throw new Error('R2_KEY_PREFIX must be a non-empty object-key prefix.');
+  }
+  return `${segments.join('/')}/${key.replace(/^[/]+/, '')}`;
+}
+
 let client: S3Client | undefined;
 function r2Client(): S3Client {
   if (client) return client;

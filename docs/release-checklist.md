@@ -25,7 +25,7 @@ This checklist is the acceptance plan for release review. Execute it against a s
 ## Deployment configuration
 
 - Apply migrations `202610020001` through `202610020004` in order.
-- Set `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `APP_ORIGINS`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, and `R2_BUCKET_NAME` as server-side Vercel environment variables. Do not put the service key or R2 credentials in Flutter configuration.
+- Set `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `APP_ORIGINS`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET_NAME`, and `R2_KEY_PREFIX` as server-side Vercel environment variables. Do not put the service key or R2 credentials in Flutter configuration.
 - Keep R2 private; configure exact web-origin CORS for `PUT` and `GET` and `Content-Type`. Confirm mobile clients upload bytes directly to R2.
 - Build Flutter with `API_BASE_URL` pointing to the deployed Vercel project. Confirm production excludes the preview-only mock adapters from app initialization.
 - Bootstrap one Super Admin through the trusted process. Sign in and rotate its temporary password.
