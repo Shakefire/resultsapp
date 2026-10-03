@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { authenticateRequest, supabaseClients } from '../../_lib/auth.js';
-import { sendError, setCorsHeaders } from '../../_lib/http.js';
+import { authenticateRequest, supabaseClients } from '../../../lib/auth.js';
+import { sendError, setCorsHeaders } from '../../../lib/http.js';
 
 type Level = 'states' | 'lgas' | 'wards' | 'polling_units';
 const levels = new Set<Level>(['states', 'lgas', 'wards', 'polling_units']);

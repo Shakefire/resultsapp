@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { authenticateRequest } from '../_lib/auth.js';
-import { sendError, setCorsHeaders } from '../_lib/http.js';
-import { supabaseClients } from '../_lib/auth.js';
+import { authenticateRequest } from '../../lib/auth.js';
+import { sendError, setCorsHeaders } from '../../lib/http.js';
+import { supabaseClients } from '../../lib/auth.js';
 
 type GeographyLevel = 'states' | 'lgas' | 'wards' | 'polling_units';
 

@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { authenticateRequest, supabaseClients } from '../../_lib/auth.js';
-import { sendError, setCorsHeaders } from '../../_lib/http.js';
+import { authenticateRequest, supabaseClients } from '../../../lib/auth.js';
+import { sendError, setCorsHeaders } from '../../../lib/http.js';
 
 function csvCell(value: unknown): string {
   const text = typeof value === 'string' ? value : JSON.stringify(value ?? '') ?? '';

@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { authenticateRequest, supabaseClients } from '../../_lib/auth.js';
-import { createUploadUrl } from '../../_lib/r2.js';
-import { sendError, setCorsHeaders } from '../../_lib/http.js';
+import { authenticateRequest, supabaseClients } from '../../../lib/auth.js';
+import { createUploadUrl } from '../../../lib/r2.js';
+import { sendError, setCorsHeaders } from '../../../lib/http.js';
 
 const rules = {
   result_photo: { contentType: 'image/jpeg', maxBytes: 15 * 1024 * 1024, extension: 'jpg' },

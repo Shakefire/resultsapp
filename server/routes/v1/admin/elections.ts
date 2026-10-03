@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { authenticateRequest, supabaseClients } from '../../_lib/auth.js';
-import { sendError, setCorsHeaders } from '../../_lib/http.js';
+import { authenticateRequest, supabaseClients } from '../../../lib/auth.js';
+import { sendError, setCorsHeaders } from '../../../lib/http.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!setCorsHeaders(req, res)) return sendError(res, 403, 'FORBIDDEN', 'This origin is not allowed.');

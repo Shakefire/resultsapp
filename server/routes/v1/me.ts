@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { authenticateRequest } from '../_lib/auth.js';
-import { sendError, setCorsHeaders } from '../_lib/http.js';
+import { authenticateRequest } from '../../lib/auth.js';
+import { sendError, setCorsHeaders } from '../../lib/http.js';
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!setCorsHeaders(req, res)) {

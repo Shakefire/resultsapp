@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { authenticateRequest, supabaseClients } from '../../_lib/auth.js';
-import { sendError, setCorsHeaders } from '../../_lib/http.js';
+import { authenticateRequest, supabaseClients } from '../../../lib/auth.js';
+import { sendError, setCorsHeaders } from '../../../lib/http.js';
 
 type DecisionAction = 'ward_verified' | 'returned' | 'lga_approved' | 'state_approved';
 

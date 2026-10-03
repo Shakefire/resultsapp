@@ -1,7 +1,7 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { authenticateRequest, supabaseClients } from '../../_lib/auth.js';
-import { deleteObject, inspectObject } from '../../_lib/r2.js';
-import { sendError, setCorsHeaders } from '../../_lib/http.js';
+import { authenticateRequest, supabaseClients } from '../../../lib/auth.js';
+import { deleteObject, inspectObject } from '../../../lib/r2.js';
+import { sendError, setCorsHeaders } from '../../../lib/http.js';
 
 type EvidenceInput = {
   objectKey?: unknown;

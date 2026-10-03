@@ -1,8 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { authenticateRequest, type AppRole } from '../../_lib/auth.js';
-import { sendError, setCorsHeaders } from '../../_lib/http.js';
-import { supabaseClients } from '../../_lib/auth.js';
+import { authenticateRequest, type AppRole } from '../../../lib/auth.js';
+import { sendError, setCorsHeaders } from '../../../lib/http.js';
+import { supabaseClients } from '../../../lib/auth.js';
 
 const AUTH_EMAIL_DOMAIN = 'accounts.smart-electoral-results.invalid';
 const roles = new Set<AppRole>([

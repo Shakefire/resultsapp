@@ -2,7 +2,7 @@
 
 For a separated deployment handoff covering Vercel, Supabase, R2, initial Super Admin setup, and the required configuration values, see [docs/setup-and-deployment.md](docs/setup-and-deployment.md).
 
-The Vercel Functions in `api/` are the backend. Deploy this repository as a Vercel project and configure the Supabase environment variables from `.env.example` in Vercel's server-side environment settings. `SUPABASE_SERVICE_ROLE_KEY` must never be included in Flutter build configuration.
+The single Vercel Function in `api/dispatch.ts` dispatches the API routes implemented in `server/routes/v1/`; `vercel.json` rewrites `/api/v1/*` to it to stay within the Hobby plan's function limit. Deploy this repository as a Vercel project and configure the Supabase environment variables from `.env.example` in Vercel's server-side environment settings. `SUPABASE_SERVICE_ROLE_KEY` must never be included in Flutter build configuration. Register future endpoints in the dispatcher rather than adding function files under `api/`.
 
 Apply SQL migrations from `supabase/migrations/` to the Supabase project before invoking the API. The state migration seeds all 36 states and FCT. To produce the LGA/ward seed from the attributed source bundle, run:
 

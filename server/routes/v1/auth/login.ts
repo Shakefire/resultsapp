@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { sendError, setCorsHeaders } from '../../_lib/http.js';
-import { supabaseClients } from '../../_lib/auth.js';
+import { sendError, setCorsHeaders } from '../../../lib/http.js';
+import { supabaseClients } from '../../../lib/auth.js';
 
 const USER_ID_PATTERN = /^[A-Za-z0-9-]{4,24}$/;
 const AUTH_EMAIL_DOMAIN = 'accounts.smart-electoral-results.invalid';
