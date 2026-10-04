@@ -29,6 +29,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         pollingUnitCode: principal.profile.polling_unit_code,
       },
       mustChangePassword: principal.profile.must_change_password,
+      canProvisionUsers: principal.profile.can_provision_users,
     },
   });
 }

@@ -1,0 +1,122 @@
+// lib/features/result_submission/services/device_location_service.dart
+import 'package:geolocator/geolocator.dart';
+import '../models/location_snapshot.dart';
+
+enum LocationServiceStatus {
+  ready,
+  serviceDisabled,
+  permissionDenied,
+  permissionDeniedForever,
+  error,
+}
+
+/// Service handling real device GPS location acquisition and permissions (Section 3 & 4).
+class DeviceLocationService {
+  DeviceLocationService();
+
+  /// Configurable maximum allowed accuracy in meters (Section 27).
+  static const double maxAllowedAccuracyMeters = 25.0;
+
+  /// Checks the current location service and permission state.
+  Future<LocationServiceStatus> checkStatus() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return LocationServiceStatus.serviceDisabled;
+    }
+
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      return LocationServiceStatus.permissionDenied;
+    }
+    if (permission == LocationPermission.deniedForever) {
+      return LocationServiceStatus.permissionDeniedForever;
+    }
+
+    return LocationServiceStatus.ready;
+  }
+
+  /// Explicitly requests location permission from the platform.
+  Future<LocationServiceStatus> requestPermission() async {
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      return LocationServiceStatus.serviceDisabled;
+    }
+
+    LocationPermission permission = await Geolocator.requestPermission();
+    if (permission == LocationPermission.denied) {
+      return LocationServiceStatus.permissionDenied;
+    }
+    if (permission == LocationPermission.deniedForever) {
+      return LocationServiceStatus.permissionDeniedForever;
+    }
+
+    return LocationServiceStatus.ready;
+  }
+
+  /// Opens the native system location settings.
+  Future<bool> openLocationSettings() async {
+    return await Geolocator.openLocationSettings();
+  }
+
+  /// Opens the native platform application settings.
+  Future<bool> openAppSettings() async {
+    return await Geolocator.openAppSettings();
+  }
+
+  /// Acquires real GPS coordinates from the device hardware (Section 2 & 26).
+  Future<LocationSnapshot> getCurrentLocation() async {
+    final status = await checkStatus();
+    if (status != LocationServiceStatus.ready) {
+      final reqStatus = await requestPermission();
+      if (reqStatus != LocationServiceStatus.ready) {
+        throw LocationException(
+          _statusToMessage(reqStatus),
+          status: reqStatus,
+        );
+      }
+    }
+
+    try {
+      final Position position = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.high,
+          timeLimit: Duration(seconds: 15),
+        ),
+      );
+
+      return LocationSnapshot(
+        latitude: position.latitude,
+        longitude: position.longitude,
+        accuracyMeters: position.accuracy,
+        capturedAt: position.timestamp,
+        isMock: position.isMocked,
+      );
+    } catch (e) {
+      throw LocationException('Unable to acquire a real GPS fix. Move to an area with location coverage and try again.', status: LocationServiceStatus.error);
+    }
+  }
+
+  String _statusToMessage(LocationServiceStatus status) {
+    switch (status) {
+      case LocationServiceStatus.serviceDisabled:
+        return 'Location Services are turned off on your device.';
+      case LocationServiceStatus.permissionDenied:
+        return 'Location permission was denied.';
+      case LocationServiceStatus.permissionDeniedForever:
+        return 'Location permission is permanently denied. Please enable it in Settings.';
+      case LocationServiceStatus.error:
+        return 'Unable to acquire satellite location.';
+      case LocationServiceStatus.ready:
+        return 'Location service ready.';
+    }
+  }
+}
+
+class LocationException implements Exception {
+  LocationException(this.message, {this.status});
+  final String message;
+  final LocationServiceStatus? status;
+
+  @override
+  String toString() => message;
+}

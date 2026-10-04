@@ -1,13 +1,17 @@
-# Smart Electoral Results API
+# smart_electoral_results_app
 
-This repository contains the Vercel TypeScript API, Supabase schema/migrations, geography import source, and deployment documentation for Smart Electoral Results.
+A new Flutter project.
 
-The API routes are served through one Vercel Function (`api/dispatch.ts`) so the project stays within the Hobby plan's 12-function deployment limit. `vercel.json` rewrites `/api/v1/*` to that dispatcher; endpoint implementations live under `server/routes/v1/`. Add new API handlers there and register their exact paths in the dispatcher instead of adding files under `api/`.
+## Getting Started
 
-## Deploy
+This project is a starting point for a Flutter application.
 
-Import this repository into Vercel with the repository root as the project root. Configure the server-side variables listed in `.env.example` using your project credentials. Never commit `.env` files or expose the Supabase service key or R2 credentials to the Flutter client.
+A few resources to get you started if this is your first Flutter project:
 
-Apply the four Supabase migrations in order, or for a fresh project only, use `supabase/bootstrap.sql` once in the Supabase SQL Editor. Read `docs/setup-and-deployment.md` before loading geography or provisioning the first Super Admin. The provisional ward seed is not production-ready.
+- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
+- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
+- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
 
-The Flutter client is intentionally maintained outside this backend-only repository. It must be built with `API_BASE_URL` set to the deployed Vercel URL.
+For help getting started with Flutter development, view the
+[online documentation](https://docs.flutter.dev/), which offers tutorials,
+samples, guidance on mobile development, and a full API reference.

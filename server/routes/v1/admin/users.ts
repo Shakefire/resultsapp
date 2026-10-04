@@ -1,11 +1,11 @@
-import { randomBytes } from 'node:crypto';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
-import { authenticateRequest, type AppRole } from '../../../lib/auth.js';
+import { authenticateRequest, type AppRole, supabaseClients } from '../../../lib/auth.js';
 import { sendError, setCorsHeaders } from '../../../lib/http.js';
-import { supabaseClients } from '../../../lib/auth.js';
+import { makeTemporaryPassword } from '../../../lib/credentials.js';
+import { generateUserId } from '../../../lib/identifiers.js';
 
 const AUTH_EMAIL_DOMAIN = 'accounts.smart-electoral-results.invalid';
-const roles = new Set<AppRole>([
+const allRoles = new Set<AppRole>([
   'state_admin', 'lga_admin', 'ward_admin', 'polling_unit_staff',
 ]);
 type ProvisionInput = {
@@ -15,6 +15,7 @@ type ProvisionInput = {
   lgaCode?: unknown;
   wardCode?: unknown;
   pollingUnitCode?: unknown;
+  canProvisionUsers?: unknown;
 };
 
 function isText(value: unknown): value is string {
@@ -25,7 +26,7 @@ function locationMatchesRole(input: ProvisionInput): input is ProvisionInput & {
   fullName: string; role: AppRole; stateCode: string;
 } {
   if (!isText(input.fullName) || input.fullName.trim().length > 120 ||
-      !isText(input.role) || !roles.has(input.role as AppRole) || !isText(input.stateCode)) return false;
+      !isText(input.role) || !allRoles.has(input.role as AppRole) || !isText(input.stateCode)) return false;
   switch (input.role) {
     case 'state_admin':
       return input.lgaCode == null && input.wardCode == null && input.pollingUnitCode == null;
@@ -40,21 +41,6 @@ function locationMatchesRole(input: ProvisionInput): input is ProvisionInput & {
   }
 }
 
-function makeUserId(input: ProvisionInput): string {
-  // Geographic codes are identifiers only; authorization always uses the stored role/scope.
-  const scope = [input.stateCode, input.lgaCode, input.wardCode, input.pollingUnitCode]
-    .filter((part): part is string => isText(part))
-    .map((part) => part.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 3));
-  const roleTag: Record<AppRole, string> = {
-    super_admin: 'SA', state_admin: 'ST', lga_admin: 'LG', ward_admin: 'WD', polling_unit_staff: 'PU',
-  };
-  return `${scope.join('-')}-${roleTag[input.role as AppRole]}-${randomBytes(4).toString('hex').slice(0, 5).toUpperCase()}`;
-}
-
-function temporaryPassword(): string {
-  return `E!${randomBytes(18).toString('base64url')}9a`;
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!setCorsHeaders(req, res)) return sendError(res, 403, 'FORBIDDEN', 'This origin is not allowed.');
   if (req.method === 'OPTIONS') return res.status(204).end();
@@ -65,8 +51,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const principal = await authenticateRequest(req, res);
   if (!principal) return;
-  if (principal.profile.role !== 'super_admin') {
-    return sendError(res, 403, 'FORBIDDEN', 'Only Super Admin can provision accounts.');
+
+  const isSuperAdmin = principal.profile.role === 'super_admin';
+  const isDelegated = principal.profile.can_provision_users === true && !isSuperAdmin;
+
+  if (!isSuperAdmin && !isDelegated) {
+    return sendError(res, 403, 'FORBIDDEN', 'Only Super Admin or a delegated provisioner can create accounts.');
   }
   if (principal.profile.must_change_password) {
     return sendError(res, 403, 'FORBIDDEN', 'Change the temporary password before using administration features.');
@@ -82,23 +72,63 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const lgaCode = isText(input.lgaCode) ? input.lgaCode.trim().toUpperCase() : null;
   const wardCode = isText(input.wardCode) ? input.wardCode.trim().toUpperCase() : null;
   const pollingUnitCode = isText(input.pollingUnitCode) ? input.pollingUnitCode.trim().toUpperCase() : null;
+  const targetRole = input.role as AppRole;
+
+  // Enforce geographic scope for delegated admins.
+  if (isDelegated) {
+    const actorRole = principal.profile.role;
+    const actorState = principal.profile.state_code;
+    const actorLga = principal.profile.lga_code;
+    if (stateCode !== actorState) {
+      return sendError(res, 403, 'FORBIDDEN', 'You can only provision accounts within your assigned state.');
+    }
+    if (actorRole === 'lga_admin') {
+      if (lgaCode !== actorLga) {
+        return sendError(res, 403, 'FORBIDDEN', 'You can only provision accounts within your assigned LGA.');
+      }
+      if (targetRole === 'state_admin' || targetRole === 'lga_admin') {
+        return sendError(res, 403, 'FORBIDDEN', 'LGA Admin can only create ward-level or polling-unit accounts.');
+      }
+    }
+    if (actorRole === 'state_admin' && targetRole === 'state_admin') {
+      return sendError(res, 403, 'FORBIDDEN', 'State Admin cannot create other State Admin accounts.');
+    }
+  }
+
+  // Only super_admin or state_admin may grant provision power, only to state_admin / lga_admin.
+  const requestedProvisionPower = input.canProvisionUsers === true;
+  const canGrant = isSuperAdmin || (isDelegated && principal.profile.role === 'state_admin');
+  const provisionPower = requestedProvisionPower && canGrant &&
+    (targetRole === 'state_admin' || targetRole === 'lga_admin');
 
   // Verify the complete hierarchy exists before creating an Auth account.
-  const locationQuery = adminClient.from('polling_units').select('code')
-    .eq('state_code', stateCode).eq('lga_code', lgaCode ?? '').eq('ward_code', wardCode ?? '').eq('code', pollingUnitCode ?? '').eq('is_active', true);
-  const { data: location, error: locationError } = input.role === 'polling_unit_staff'
-    ? await locationQuery.maybeSingle()
-    : input.role === 'ward_admin'
-      ? await adminClient.from('wards').select('code').eq('state_code', stateCode).eq('lga_code', lgaCode!).eq('code', wardCode!).eq('is_active', true).maybeSingle()
-      : input.role === 'lga_admin'
-        ? await adminClient.from('lgas').select('code').eq('state_code', stateCode).eq('code', lgaCode!).eq('is_active', true).maybeSingle()
-        : await adminClient.from('states').select('code').eq('code', stateCode).eq('is_active', true).maybeSingle();
+  const { data: location, error: locationError } = targetRole === 'polling_unit_staff'
+    ? await adminClient.from('polling_units').select('code')
+        .eq('state_code', stateCode).eq('lga_code', lgaCode ?? '').eq('ward_code', wardCode ?? '')
+        .eq('code', pollingUnitCode ?? '').eq('is_active', true).maybeSingle()
+    : targetRole === 'ward_admin'
+      ? await adminClient.from('wards').select('code')
+          .eq('state_code', stateCode).eq('lga_code', lgaCode!).eq('code', wardCode!).eq('is_active', true).maybeSingle()
+      : targetRole === 'lga_admin'
+        ? await adminClient.from('lgas').select('code')
+            .eq('state_code', stateCode).eq('code', lgaCode!).eq('is_active', true).maybeSingle()
+        : await adminClient.from('states').select('code')
+            .eq('code', stateCode).eq('is_active', true).maybeSingle();
+
   if (locationError || !location) {
     return sendError(res, 422, 'VALIDATION_ERROR', 'The assigned geographic location does not exist.');
   }
 
-  const userId = makeUserId({ ...input, stateCode, lgaCode, wardCode, pollingUnitCode });
-  const password = temporaryPassword();
+  // Fetch LGA name for deterministic ID generation.
+  let lgaName: string | null = null;
+  if (lgaCode) {
+    const { data: lgaRow } = await adminClient.from('lgas').select('name')
+      .eq('state_code', stateCode).eq('code', lgaCode).maybeSingle();
+    lgaName = lgaRow?.name ?? null;
+  }
+
+  const userId = generateUserId({ role: targetRole, stateCode, lgaCode, lgaName, wardCode, pollingUnitCode });
+  const password = makeTemporaryPassword();
   const internalEmail = `${userId.toLowerCase()}@${AUTH_EMAIL_DOMAIN}`;
   const { data: created, error: createError } = await adminClient.auth.admin.createUser({
     email: internalEmail,
@@ -111,18 +141,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return sendError(res, 500, 'INTERNAL_ERROR', 'Unable to provision the account.');
   }
 
-  const { error: profileError } = await adminClient.from('user_profiles').insert({
+  const profileData: Record<string, unknown> = {
     auth_user_id: created.user.id,
     user_id: userId,
     full_name: input.fullName.trim(),
-    role: input.role,
+    role: targetRole,
     state_code: stateCode,
     lga_code: lgaCode,
     ward_code: wardCode,
     polling_unit_code: pollingUnitCode,
     must_change_password: true,
+    can_provision_users: provisionPower,
     provisioned_by: principal.authUser.id,
-  });
+  };
+  let { error: profileError } = await adminClient.from('user_profiles').insert(profileData);
+  if (profileError && profileError.code === '42703' && 'can_provision_users' in profileData) {
+    delete profileData.can_provision_users;
+    profileError = (await adminClient.from('user_profiles').insert(profileData)).error;
+  }
 
   if (profileError) {
     await adminClient.auth.admin.deleteUser(created.user.id);
@@ -135,7 +171,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     event_type: 'account.provisioned',
     entity_type: 'user_profile',
     entity_id: created.user.id,
-    details: { userId, role: input.role, stateCode, lgaCode, wardCode, pollingUnitCode },
+    details: { userId, role: targetRole, stateCode, lgaCode, wardCode, pollingUnitCode, canProvisionUsers: provisionPower },
   });
   if (auditError) {
     await adminClient.auth.admin.deleteUser(created.user.id);
@@ -143,5 +179,5 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return sendError(res, 500, 'INTERNAL_ERROR', 'Unable to record the account provisioning event.');
   }
 
-  res.status(201).json({ data: { userId, temporaryPassword: password, mustChangePassword: true } });
+  res.status(201).json({ data: { userId, temporaryPassword: password, mustChangePassword: true, canProvisionUsers: provisionPower } });
 }

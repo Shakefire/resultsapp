@@ -1,0 +1,33 @@
+name: smart_electoral_results_app
+description: "Smart Electoral Results App - Election Results Management System"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.12.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  google_fonts: ^6.2.1
+  camera: ^0.11.0+2
+  geolocator: ^13.0.2
+  permission_handler: ^11.3.1
+  path_provider: ^2.1.5
+  image: ^4.3.0
+  intl: ^0.20.2
+  crypto: ^3.0.6
+  http: ^1.6.0
+  file_picker: ^8.1.7
+  url_launcher: ^6.3.2
+  device_preview: ^3.0.0-prerelease3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true

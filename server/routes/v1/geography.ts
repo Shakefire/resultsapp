@@ -21,8 +21,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   const principal = await authenticateRequest(req, res);
   if (!principal) return;
-  if (principal.profile.role !== 'super_admin' || principal.profile.must_change_password) {
-    return sendError(res, 403, 'FORBIDDEN', 'Only an initialized Super Admin can access account geography.');
+  const isSuperAdmin = principal.profile.role === 'super_admin';
+  const isDelegated = principal.profile.can_provision_users === true;
+  if ((!isSuperAdmin && !isDelegated) || principal.profile.must_change_password) {
+    return sendError(res, 403, 'FORBIDDEN', 'Only an initialized Super Admin or delegated provisioner can access account geography.');
   }
 
   const level = req.query.level;

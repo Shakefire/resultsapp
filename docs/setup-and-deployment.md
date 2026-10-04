@@ -4,7 +4,7 @@ This project has three separately configured parts: the Vercel API, Supabase (au
 
 ## 1. Backend to deploy to Vercel
 
-Deploy the repository root as a Vercel project. One Vercel Function at `api/dispatch.ts` serves the API handlers under `server/routes/v1/`; `vercel.json` rewrites the `/api/v1/*` paths to that dispatcher. `package.json`, `package-lock.json`, and `vercel.json` are part of the deployment. There is no separate backend server process to deploy.
+Deploy the repository root as a Vercel project. The backend source is the `api/` directory; Vercel exposes each TypeScript handler as a function under `/api/v1/...`. `package.json`, `package-lock.json`, and `vercel.json` are part of the deployment. There is no separate backend repository or server process to deploy.
 
 In the Vercel project settings, add the following environment variables for each environment you use (Development, Preview, Production):
 
@@ -17,15 +17,14 @@ In the Vercel project settings, add the following environment variables for each
 | `R2_ACCOUNT_ID` | Cloudflare account ID | Treat as private config |
 | `R2_ACCESS_KEY_ID` | R2 S3 API token access key | **Yes** |
 | `R2_SECRET_ACCESS_KEY` | Matching R2 S3 API token secret | **Yes** |
-| `R2_BUCKET_NAME` | Private R2 bucket name (`storageapp`) | No |
-| `R2_KEY_PREFIX` | Object-key prefix inside the bucket (`inecresults/`) | No; defaults to `inecresults/` |
+| `R2_BUCKET_NAME` | Private R2 bucket name | No |
 
 Do not place the service-role key or R2 credentials in Flutter, source control, or a public environment file. `.env.example` contains placeholders, not working credentials.
 
-The deployed backend URL will look like `https://<vercel-project>.vercel.app`. Flutter must be built/run with that URL:
+The deployed backend is `https://resultsapp-gray.vercel.app`. Flutter must be built/run with that API URL. When testing from the local web app, include `http://localhost:8080` in `APP_ORIGINS` as well as any deployed web origins:
 
 ```powershell
-flutter run -d web-server --web-port 8080 --dart-define=API_BASE_URL=https://<vercel-project>.vercel.app
+flutter run -d web-server --web-port 8080 --dart-define=API_BASE_URL=https://resultsapp-gray.vercel.app
 ```
 
 For production web builds, use the same `--dart-define` when building Flutter. Add the exact deployed Flutter web origin to Vercel `APP_ORIGINS`.
@@ -38,6 +37,8 @@ Create a Supabase project, then apply the SQL migrations in this exact order:
 2. `supabase/migrations/202610020002_workflow_storage.sql` — result submission, review, evidence metadata/storage grants, and workflow rules.
 3. `supabase/migrations/202610020003_approval_summaries.sql` — LGA/state summary approval and aggregation.
 4. `supabase/migrations/202610020004_admin_management.sql` — account/geography administration support.
+5. `supabase/migrations/202610030001_polling_unit_location.sql` — polling-unit location and submission support.
+6. `supabase/migrations/202610030002_review_dashboards.sql` — scoped approval readiness, active-election dashboard metrics, party totals, and active-LGA state approval rules.
 
 Apply using the Supabase SQL Editor or Supabase CLI linked to the intended project. Keep a record of which migration versions have run; do not run them against the wrong project.
 
@@ -53,15 +54,15 @@ For Flutter Web direct uploads/downloads, configure bucket CORS for the exact we
 
 ### Results archive naming (planned; not implemented yet)
 
-R2 stores evidence objects only. The API stores result figures and their approval records in Supabase, and the State Admin CSV endpoint returns an audited CSV to the client; it does not write that report into R2. Evidence and register object keys use the `inecresults/` prefix inside the `storageapp` bucket. Result exports are not yet written to R2, and objects do not yet receive descriptive custom metadata. The bucket name is `storageapp`; `inecresults/` is an object-key prefix within that bucket, not a second bucket.
+Today R2 stores evidence objects only. The API stores result figures and their approval records in Supabase, and the State Admin CSV endpoint returns an audited CSV to the client; it does not write that report into R2. The current evidence keys also do not use the requested `election/` prefix, and R2 objects do not yet receive descriptive custom metadata. The bucket name is `storageapp`; `election/` would be an object-key prefix within that bucket, not a second bucket.
 
 For app-independent access, keep Supabase as the authoritative workflow database and write immutable exports to R2 when a state summary is approved. A readable layout should be:
 
 ```text
-inecresults/results/<election-code>/state/<state-code>/summary-<summary-id>/state-summary.json
-inecresults/results/<election-code>/state/<state-code>/summary-<summary-id>/state-summary.csv
-inecresults/evidence/<election-code>/state/<state-code>/lga/<lga-code>/ward/<ward-code>/pu/<pu-code>/submission/<submission-id>/rev-<revision>/<evidence-type>.<ext>
-inecresults/registers/<state-code>/lga/<lga-code>/ward/<ward-code>/pu/<pu-code>/<register-id>/voter-register.pdf
+election/results/<election-code>/state/<state-code>/summary-<summary-id>/state-summary.json
+election/results/<election-code>/state/<state-code>/summary-<summary-id>/state-summary.csv
+election/evidence/<election-code>/state/<state-code>/lga/<lga-code>/ward/<ward-code>/pu/<pu-code>/submission/<submission-id>/rev-<revision>/<evidence-type>.<ext>
+election/registers/<state-code>/lga/<lga-code>/ward/<ward-code>/pu/<pu-code>/<register-id>/voter-register.pdf
 ```
 
 Each exported summary should include an explicit schema version, election and geography codes/names, summary ID, approval actor and UTC timestamp, source submission/summary IDs, figures, and generated-at timestamp. Add ASCII R2 custom metadata for `record-type`, `schema-version`, `election-code`, `state-code`, `lga-code`, `ward-code`, `polling-unit-code`, `summary-id` or `submission-id`, and `revision`. Keep the export immutable by using the approved summary ID in the key. The implementation must write the R2 object only after the database approval commits, and use an outbox/retry record so a temporary R2 failure cannot lose the export or roll back an approved election result. Signed URLs remain the app access path; keep the bucket private.
@@ -72,7 +73,7 @@ There is **no seeded Super Admin account or default password**. The first one is
 
 The login screen takes the User ID and password, not a normal email. For this first account, the Supabase Auth email must follow the backend's internal mapping: `<lowercase-user-id>@accounts.smart-electoral-results.invalid`. Use a strong initial password and store it securely; there is no project default to share. Sign in once and change it. Do not create the profile with a role or scope copied from an untrusted client request.
 
-After bootstrap, Super Admin creates other accounts in the app. The API generates each short geography-based User ID and a random temporary password, displays the temporary password once, and requires the user to change it at first login. The server-stored role and geography assignment determine access; editing the User ID does not grant privileges.
+After bootstrap, Super Admin creates other accounts in the app. The API generates each short geography-based User ID and a random six-character alphanumeric temporary password, displays the temporary password once, and requires the user to change it at first login. The server-stored role and geography assignment determine access; editing the User ID does not grant privileges. Supabase Auth must allow passwords with a minimum length of six for these initial credentials; users still set a permanent password of at least eight characters.
 
 ## 5. Deployment order
 

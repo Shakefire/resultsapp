@@ -119,6 +119,7 @@ create table public.polling_units (
   lga_code text not null,
   ward_code text not null,
   name text not null,
+  location text,
   delimitation_code text,
   is_active boolean not null default true,
   source_version text not null default 'INEC-2023',

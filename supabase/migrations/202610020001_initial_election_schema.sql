@@ -110,6 +110,7 @@ create table public.polling_units (
   lga_code text not null,
   ward_code text not null,
   name text not null,
+  location text,
   delimitation_code text,
   is_active boolean not null default true,
   source_version text not null default 'INEC-2023',
@@ -320,3 +321,4 @@ revoke all on function public.can_access_location(text, text, text, text) from p
 grant execute on function public.can_access_location(text, text, text, text) to authenticated;
 revoke all on function public.is_active_super_admin() from public, anon;
 grant execute on function public.is_active_super_admin() to authenticated;
+
