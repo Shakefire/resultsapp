@@ -51,46 +51,52 @@ class _SuperAdminDashboardScreenState extends State<SuperAdminDashboardScreen> {
   }
 
   Future<void> _loadAccounts() async {
-    if (mounted)
+    if (mounted) {
       setState(() {
         _loadingAccounts = true;
         _accountError = null;
       });
+    }
     try {
       final accounts = await _management.getAccounts();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _accounts = accounts;
           _loadingAccounts = false;
         });
+      }
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _accountError = _message(error);
           _loadingAccounts = false;
         });
+      }
     }
   }
 
   Future<void> _loadElections() async {
-    if (mounted)
+    if (mounted) {
       setState(() {
         _loadingElections = true;
         _electionError = null;
       });
+    }
     try {
       final elections = await _elections.list();
-      if (mounted)
+      if (mounted) {
         setState(() {
           _electionItems = elections;
           _loadingElections = false;
         });
+      }
     } catch (error) {
-      if (mounted)
+      if (mounted) {
         setState(() {
           _electionError = _message(error);
           _loadingElections = false;
         });
+      }
     }
   }
 
@@ -155,7 +161,19 @@ class _SuperAdminDashboardScreenState extends State<SuperAdminDashboardScreen> {
             const SizedBox(height: AppSpacing.lg),
             LayoutBuilder(
               builder: (context, constraints) {
-                final columns = constraints.maxWidth >= 760 ? 4 : 2;
+                final width = constraints.maxWidth;
+                final int columns;
+                final double aspectRatio;
+                if (width >= 960) {
+                  columns = 4;
+                  aspectRatio = 1.35;
+                } else if (width >= 560) {
+                  columns = 2;
+                  aspectRatio = 1.85;
+                } else {
+                  columns = 2;
+                  aspectRatio = 1.15;
+                }
                 final delegatedCount = _accounts
                     .where((a) => a.json['can_provision_users'] == true)
                     .length;
@@ -165,7 +183,7 @@ class _SuperAdminDashboardScreenState extends State<SuperAdminDashboardScreen> {
                   physics: const NeverScrollableScrollPhysics(),
                   crossAxisSpacing: AppSpacing.md,
                   mainAxisSpacing: AppSpacing.md,
-                  childAspectRatio: columns >= 4 ? 1.35 : 1.55,
+                  childAspectRatio: aspectRatio,
                   children: [
                     _MetricCard(
                       label: 'Managed accounts',
@@ -310,48 +328,66 @@ class _MetricCard extends StatelessWidget {
       onTap: onTap,
       borderRadius: BorderRadius.circular(AppSpacing.md),
       child: Padding(
-        padding: const EdgeInsets.all(AppSpacing.md),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AppSpacing.md,
+          vertical: AppSpacing.sm,
+        ),
         child: Row(
           children: [
             CircleAvatar(
+              radius: 18,
               backgroundColor: AppColors.primaryLight,
-              child: Icon(icon, color: AppColors.primary),
+              child: Icon(icon, color: AppColors.primary, size: 20),
             ),
-            const SizedBox(width: AppSpacing.md),
+            const SizedBox(width: AppSpacing.sm),
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Text(label, style: AppTextStyles.caption()),
-                  const SizedBox(height: 2),
-                  if (error != null)
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
                     Text(
-                      'Unavailable',
-                      style: AppTextStyles.body().copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    )
-                  else if (value == null)
-                    const SizedBox(
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  else
-                    Text(value!, style: AppTextStyles.sectionTitle()),
-                  Text(
-                    detail,
-                    style: AppTextStyles.caption(
-                      color: AppColors.textSecondary,
+                      label,
+                      style: AppTextStyles.caption(),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                  ),
-                ],
+                    const SizedBox(height: 2),
+                    if (error != null)
+                      Text(
+                        'Unavailable',
+                        style: AppTextStyles.body().copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      )
+                    else if (value == null)
+                      const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    else
+                      Text(value!, style: AppTextStyles.sectionTitle()),
+                    Text(
+                      detail,
+                      style: AppTextStyles.caption(
+                        color: AppColors.textSecondary,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
               ),
             ),
+            const SizedBox(width: 4),
             const Icon(
               Icons.arrow_forward_ios_rounded,
-              size: 14,
+              size: 12,
               color: AppColors.textSecondary,
             ),
           ],
