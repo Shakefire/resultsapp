@@ -228,14 +228,10 @@ class ResultSubmissionController extends ChangeNotifier {
     _draft.state = SubmissionLifecycleState.uploading;
     _draft.uploadError = null;
     _isProcessing = true;
-    _processingMessage = 'Uploading evidence directly to secure storage...';
+    _processingMessage = 'Uploading EC8A result sheet photo...';
     notifyListeners();
 
     try {
-      _draft.state = SubmissionLifecycleState.submitting;
-      _processingMessage = 'Submitting result and verifying stored evidence...';
-      notifyListeners();
-
       // Build transmission payload (Section 31)
       final payload = ResultSubmissionPayload(
         electionId: electionId,
@@ -257,6 +253,13 @@ class ResultSubmissionController extends ChangeNotifier {
         resultPhoto: payload.resultPhoto,
         declarationVideo: payload.declarationVideo,
         location: payload.location,
+        onProgress: (status) {
+          _processingMessage = status;
+          if (status.contains('Verifying')) {
+            _draft.state = SubmissionLifecycleState.submitting;
+          }
+          notifyListeners();
+        },
       );
       _draft.serverConfirmationCode = receipt.confirmationCode;
       _draft.state = SubmissionLifecycleState.submitted;

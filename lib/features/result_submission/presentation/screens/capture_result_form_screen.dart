@@ -188,37 +188,42 @@ class _CaptureResultFormScreenState extends State<CaptureResultFormScreen>
 
   @override
   Widget build(BuildContext context) {
-    final photo = widget.controller.resultPhoto;
+    return ListenableBuilder(
+      listenable: widget.controller,
+      builder: (context, _) {
+        final photo = widget.controller.resultPhoto;
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        title: Text(
-          photo != null ? 'Inspect Evidence Photo' : 'Capture Result Form',
-          style: AppTextStyles.sectionTitle(color: Colors.white),
-        ),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            StepProgressIndicator(
-              currentStep: 2,
-              stepTitle: photo != null ? 'Result Form Captured' : 'Capture Result Form (EC8A)',
+        return Scaffold(
+          backgroundColor: Colors.black,
+          appBar: AppBar(
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.white,
+            title: Text(
+              photo != null ? 'Inspect Evidence Photo' : 'Capture Result Form',
+              style: AppTextStyles.sectionTitle(color: Colors.white),
             ),
-            Expanded(
-              child: photo != null
-                  ? _buildInspectionView(photo.localPath)
-                  : _buildCameraCaptureView(),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Navigator.of(context).pop(),
             ),
-          ],
-        ),
-      ),
+          ),
+          body: SafeArea(
+            child: Column(
+              children: [
+                StepProgressIndicator(
+                  currentStep: 2,
+                  stepTitle: photo != null ? 'Result Form Captured' : 'Capture Result Form (EC8A)',
+                ),
+                Expanded(
+                  child: photo != null
+                      ? _buildInspectionView(photo.localPath)
+                      : _buildCameraCaptureView(),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -287,18 +292,41 @@ class _CaptureResultFormScreenState extends State<CaptureResultFormScreen>
               // Processing overlay
               if (widget.controller.isProcessing)
                 Container(
-                  color: Colors.black.withValues(alpha: 0.7),
+                  color: Colors.black.withValues(alpha: 0.75),
                   child: Center(
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const CircularProgressIndicator(color: AppColors.primary),
-                        const SizedBox(height: AppSpacing.lg),
-                        Text(
-                          widget.controller.processingMessage ?? 'Processing evidence...',
-                          style: const TextStyle(color: Colors.white, fontSize: 13),
-                        ),
-                      ],
+                    child: Container(
+                      margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
+                      padding: const EdgeInsets.all(AppSpacing.xl),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF1C221E),
+                        borderRadius: AppBorderRadius.card,
+                        border: Border.all(color: AppColors.primary.withValues(alpha: 0.3)),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const SizedBox(
+                            width: 38,
+                            height: 38,
+                            child: CircularProgressIndicator(
+                              color: AppColors.primary,
+                              strokeWidth: 3,
+                            ),
+                          ),
+                          const SizedBox(height: AppSpacing.lg),
+                          Text(
+                            widget.controller.processingMessage ?? 'Processing evidence...',
+                            style: const TextStyle(color: Colors.white, fontSize: 14, fontWeight: FontWeight.w600),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: AppSpacing.xs),
+                          const Text(
+                            'Securing GPS coordinates & timestamp',
+                            style: TextStyle(color: Colors.white70, fontSize: 12),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

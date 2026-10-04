@@ -136,32 +136,95 @@ class _DeclarationVideoScreenState extends State<DeclarationVideoScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final video = widget.controller.declarationVideo;
+    return ListenableBuilder(
+      listenable: widget.controller,
+      builder: (context, _) {
+        final video = widget.controller.declarationVideo;
+        final isProcessing = widget.controller.isProcessing;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text('Declaration Video', style: AppTextStyles.sectionTitle()),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            const StepProgressIndicator(
-              currentStep: 3,
-              stepTitle: 'Record Official Declaration Video',
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            title: Text('Declaration Video', style: AppTextStyles.sectionTitle()),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: isProcessing ? null : () => Navigator.of(context).pop(),
             ),
-            Expanded(
-              child: video != null
-                  ? _buildVideoCompletedView()
-                  : _buildRecordingView(),
+          ),
+          body: SafeArea(
+            child: Stack(
+              children: [
+                Column(
+                  children: [
+                    const StepProgressIndicator(
+                      currentStep: 3,
+                      stepTitle: 'Record Official Declaration Video',
+                    ),
+                    Expanded(
+                      child: video != null
+                          ? _buildVideoCompletedView()
+                          : _buildRecordingView(),
+                    ),
+                  ],
+                ),
+                if (isProcessing)
+                  Container(
+                    color: Colors.black.withValues(alpha: 0.65),
+                    child: Center(
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
+                        padding: const EdgeInsets.all(AppSpacing.xl),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: AppBorderRadius.card,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(height: 8),
+                            const SizedBox(
+                              width: 44,
+                              height: 44,
+                              child: CircularProgressIndicator(
+                                color: AppColors.primary,
+                                strokeWidth: 3.5,
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.lg),
+                            Text(
+                              'Processing Video',
+                              style: AppTextStyles.sectionTitle(),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            Text(
+                              widget.controller.processingMessage ?? 'Securing declaration video metadata...',
+                              style: AppTextStyles.body(color: AppColors.textSecondary),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            const LinearProgressIndicator(
+                              color: AppColors.primary,
+                              backgroundColor: AppColors.background,
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 

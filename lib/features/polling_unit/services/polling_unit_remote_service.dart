@@ -43,9 +43,13 @@ class PollingUnitRemoteService {
     required EvidenceMetadata resultPhoto,
     required EvidenceMetadata declarationVideo,
     required LocationSnapshot location,
+    void Function(String message)? onProgress,
   }) async {
+    onProgress?.call('Uploading EC8A result sheet photo...');
     final photoKey = await _uploadEvidence(resultPhoto, 'result_photo', electionId);
+    onProgress?.call('Uploading official declaration video...');
     final videoKey = await _uploadEvidence(declarationVideo, 'declaration_video', electionId);
+    onProgress?.call('Verifying evidence and transmitting result...');
     final response = await _api.post('/api/v1/workflow/submissions', {
       'electionId': electionId,
       'figures': figures.toJson(),

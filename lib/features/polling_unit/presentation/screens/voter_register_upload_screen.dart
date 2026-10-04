@@ -92,112 +92,170 @@ class _VoterRegisterUploadScreenState extends State<VoterRegisterUploadScreen> {
         ),
       ),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AppSpacing.horizontalPaddingLarge),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(AppSpacing.lg),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: AppBorderRadius.card,
-                  border: Border.all(color: AppColors.border),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('TARGET POLLING UNIT', style: AppTextStyles.inputLabel(color: AppColors.textSecondary)),
-                    const SizedBox(height: 4),
-                    Text(
-                      assignment?.pollingUnitId ?? 'PU 0047',
-                      style: AppTextStyles.sectionTitle(),
+        child: Stack(
+          children: [
+            SingleChildScrollView(
+              padding: const EdgeInsets.all(AppSpacing.horizontalPaddingLarge),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(AppSpacing.lg),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: AppBorderRadius.card,
+                      border: Border.all(color: AppColors.border),
                     ),
-                    Text(
-                      assignment?.pollingUnitName ?? 'Gwarinpa Primary School',
-                      style: AppTextStyles.bodySmall(),
-                    ),
-                    Text(
-                      assignment != null ? '${assignment.wardAndLga}, ${assignment.state}' : '',
-                      style: AppTextStyles.caption(),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: AppSpacing.xxl),
-
-              Text('Select Register PDF', style: AppTextStyles.sectionTitle()),
-              const SizedBox(height: AppSpacing.xs),
-              Text(
-                'Upload the certified voter register document allocated to this polling station.',
-                style: AppTextStyles.subtitle(),
-              ),
-
-              const SizedBox(height: AppSpacing.lg),
-
-              // Upload box / File selector
-              InkWell(
-                onTap: _isUploading ? null : _selectFile,
-                borderRadius: AppBorderRadius.card,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(AppSpacing.xl),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: AppBorderRadius.card,
-                    border: Border.all(
-                      color: _selectedFile != null ? AppColors.primary : AppColors.border,
-                      width: _selectedFile != null ? 1.5 : 1,
-                    ),
-                  ),
-                  child: Column(
-                    children: [
-                      Icon(
-                        _selectedFile != null ? Icons.picture_as_pdf : Icons.cloud_upload_outlined,
-                        size: 40,
-                        color: _selectedFile != null ? AppColors.primary : AppColors.textSecondary,
-                      ),
-                      const SizedBox(height: AppSpacing.md),
-                      Text(
-                        _selectedFile ?? 'Tap to select Voter Register PDF',
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.body().copyWith(
-                          fontWeight: _selectedFile != null ? FontWeight.w600 : FontWeight.w400,
-                          color: _selectedFile != null ? AppColors.textPrimary : AppColors.textSecondary,
-                        ),
-                      ),
-                      if (_selectedFile == null) ...[
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('TARGET POLLING UNIT', style: AppTextStyles.inputLabel(color: AppColors.textSecondary)),
                         const SizedBox(height: 4),
                         Text(
-                          'Supported format: PDF up to 25MB',
+                          assignment?.pollingUnitId ?? 'PU 0047',
+                          style: AppTextStyles.sectionTitle(),
+                        ),
+                        Text(
+                          assignment?.pollingUnitName ?? 'Gwarinpa Primary School',
+                          style: AppTextStyles.bodySmall(),
+                        ),
+                        Text(
+                          assignment != null ? '${assignment.wardAndLga}, ${assignment.state}' : '',
                           style: AppTextStyles.caption(),
                         ),
                       ],
-                    ],
+                    ),
+                  ),
+
+                  const SizedBox(height: AppSpacing.xxl),
+
+                  Text('Select Register PDF', style: AppTextStyles.sectionTitle()),
+                  const SizedBox(height: AppSpacing.xs),
+                  Text(
+                    'Upload the certified voter register document allocated to this polling station.',
+                    style: AppTextStyles.subtitle(),
+                  ),
+
+                  const SizedBox(height: AppSpacing.lg),
+
+                  // Upload box / File selector
+                  InkWell(
+                    onTap: _isUploading ? null : _selectFile,
+                    borderRadius: AppBorderRadius.card,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(AppSpacing.xl),
+                      decoration: BoxDecoration(
+                        color: AppColors.surface,
+                        borderRadius: AppBorderRadius.card,
+                        border: Border.all(
+                          color: _selectedFile != null ? AppColors.primary : AppColors.border,
+                          width: _selectedFile != null ? 1.5 : 1,
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            _selectedFile != null ? Icons.picture_as_pdf : Icons.cloud_upload_outlined,
+                            size: 40,
+                            color: _selectedFile != null ? AppColors.primary : AppColors.textSecondary,
+                          ),
+                          const SizedBox(height: AppSpacing.md),
+                          Text(
+                            _selectedFile ?? 'Tap to select Voter Register PDF',
+                            textAlign: TextAlign.center,
+                            style: AppTextStyles.body().copyWith(
+                              fontWeight: _selectedFile != null ? FontWeight.w600 : FontWeight.w400,
+                              color: _selectedFile != null ? AppColors.textPrimary : AppColors.textSecondary,
+                            ),
+                          ),
+                          if (_selectedFile == null) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              'Supported format: PDF up to 25MB',
+                              style: AppTextStyles.caption(),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  const SizedBox(height: AppSpacing.xxl),
+
+                  if (_error != null) ...[
+                    Text(_error!, style: AppTextStyles.bodySmall(color: AppColors.error)),
+                    const SizedBox(height: AppSpacing.md),
+                  ],
+
+                  PrimaryButton(
+                    label: 'UPLOAD & TRANSMIT REGISTER',
+                    isLoading: _isUploading,
+                    loadingLabel: 'Uploading PDF...',
+                    enabled: _selectedFile != null && !_isUploading,
+                    onPressed: _startUpload,
+                  ),
+
+                  const SizedBox(height: AppSpacing.xl),
+                ],
+              ),
+            ),
+
+            if (_isUploading)
+              Container(
+                color: Colors.black.withValues(alpha: 0.65),
+                child: Center(
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
+                    padding: const EdgeInsets.all(AppSpacing.xl),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: AppBorderRadius.card,
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.25),
+                          blurRadius: 20,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(height: 8),
+                        const SizedBox(
+                          width: 44,
+                          height: 44,
+                          child: CircularProgressIndicator(
+                            color: AppColors.primary,
+                            strokeWidth: 3.5,
+                          ),
+                        ),
+                        const SizedBox(height: AppSpacing.lg),
+                        Text(
+                          'Uploading Voter Register',
+                          style: AppTextStyles.sectionTitle(),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: AppSpacing.sm),
+                        Text(
+                          'Streaming PDF directly to secure storage...',
+                          style: AppTextStyles.body(color: AppColors.textSecondary),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: AppSpacing.md),
+                        const LinearProgressIndicator(
+                          color: AppColors.primary,
+                          backgroundColor: AppColors.background,
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
                   ),
                 ),
               ),
-
-              const SizedBox(height: AppSpacing.xxl),
-
-              if (_error != null) ...[
-                Text(_error!, style: AppTextStyles.bodySmall(color: AppColors.error)),
-                const SizedBox(height: AppSpacing.md),
-              ],
-
-              PrimaryButton(
-                label: 'UPLOAD & TRANSMIT REGISTER',
-                isLoading: _isUploading,
-                loadingLabel: 'Uploading PDF...',
-                enabled: _selectedFile != null,
-                onPressed: _startUpload,
-              ),
-
-              const SizedBox(height: AppSpacing.xl),
-            ],
-          ),
+          ],
         ),
       ),
     );

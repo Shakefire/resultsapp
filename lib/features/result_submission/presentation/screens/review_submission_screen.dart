@@ -45,159 +45,224 @@ class _ReviewSubmissionScreenState extends State<ReviewSubmissionScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final draft = widget.controller.draft;
-    final figures = draft.figures;
-    final photo = draft.resultPhoto;
-    final video = draft.declarationVideo;
-    final location = draft.location;
-    final timestamp = draft.deviceTimestamp;
-    final hasError = draft.state == SubmissionLifecycleState.uploadFailed;
+    return ListenableBuilder(
+      listenable: widget.controller,
+      builder: (context, _) {
+        final draft = widget.controller.draft;
+        final figures = draft.figures;
+        final photo = draft.resultPhoto;
+        final video = draft.declarationVideo;
+        final location = draft.location;
+        final timestamp = draft.deviceTimestamp;
+        final hasError = draft.state == SubmissionLifecycleState.uploadFailed;
+        final isBusy = _isSubmitting || widget.controller.isProcessing;
 
-    return Scaffold(
-      backgroundColor: AppColors.background,
-      appBar: AppBar(
-        title: Text('Review Submission', style: AppTextStyles.sectionTitle()),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
-      body: SafeArea(
-        child: Column(
-          children: [
-            const StepProgressIndicator(
-              currentStep: 5,
-              stepTitle: 'Review & Transmit Official Result',
+        return Scaffold(
+          backgroundColor: AppColors.background,
+          appBar: AppBar(
+            title: Text('Review Submission', style: AppTextStyles.sectionTitle()),
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back),
+              onPressed: isBusy ? null : () => Navigator.of(context).pop(),
             ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(AppSpacing.horizontalPaddingLarge),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          ),
+          body: SafeArea(
+            child: Stack(
+              children: [
+                Column(
                   children: [
-                    Text(
-                      'Verify all evidence packages before transmitting to the collation collation backend.',
-                      style: AppTextStyles.subtitle(),
+                    const StepProgressIndicator(
+                      currentStep: 5,
+                      stepTitle: 'Review & Transmit Official Result',
                     ),
-
-                    const SizedBox(height: AppSpacing.lg),
-
-                    // Polling Unit Header Card
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(AppSpacing.lg),
-                      decoration: BoxDecoration(
-                        color: AppColors.surface,
-                        borderRadius: AppBorderRadius.card,
-                        border: Border.all(color: AppColors.border),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('POLLING UNIT', style: AppTextStyles.inputLabel(color: AppColors.textSecondary)),
-                          const SizedBox(height: 2),
-                          Text(draft.pollingUnitId, style: AppTextStyles.sectionTitle()),
-                          Text('Ward 03 · AMAC, FCT', style: AppTextStyles.bodySmall()),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: AppSpacing.lg),
-
-                    // Item 1: Result Figures
-                    _ReviewItemCard(
-                      title: 'RESULT FIGURES',
-                      status: figures.totalValidVotes > 0 ? 'Completed' : 'Pending',
-                      isCompleted: figures.totalValidVotes > 0,
-                      summary: 'Total Valid Votes: ${figures.totalValidVotes}\nTotal Votes Cast: ${figures.totalVotesCast}',
-                      onEdit: () => widget.onNavigateToStep(1),
-                    ),
-
-                    const SizedBox(height: AppSpacing.md),
-
-                    // Item 2: Result Form Photo
-                    _ReviewItemCard(
-                      title: 'RESULT FORM (EC8A)',
-                      status: photo != null ? 'Captured' : 'Missing',
-                      isCompleted: photo != null,
-                      summary: photo != null
-                          ? 'Stamped with GPS & device timestamp\nSize: ${photo.fileSizeFormatted}'
-                          : 'Please capture result sheet photo',
-                      onEdit: () => widget.onNavigateToStep(2),
-                      thumbnailPath: photo?.localPath,
-                    ),
-
-                    const SizedBox(height: AppSpacing.md),
-
-                    // Item 3: Declaration Video
-                    _ReviewItemCard(
-                      title: 'DECLARATION VIDEO',
-                      status: video != null ? 'Recorded' : 'Missing',
-                      isCompleted: video != null,
-                      summary: video != null
-                          ? 'Official declaration video recorded\nDuration: ${video.durationSeconds ?? 0}s (${video.fileSizeFormatted})'
-                          : 'Please record declaration video',
-                      onEdit: () => widget.onNavigateToStep(3),
-                    ),
-
-                    const SizedBox(height: AppSpacing.md),
-
-                    // Item 4: Location & Timestamp
-                    _ReviewItemCard(
-                      title: 'LOCATION & TIMESTAMP',
-                      status: location != null ? 'Captured' : 'Pending',
-                      isCompleted: location != null,
-                      summary: location != null
-                          ? '${location.latitudeFormatted}, ${location.longitudeFormatted} (${location.accuracyFormatted})\n${DateFormat('dd MMM yyyy · HH:mm:ss').format(timestamp)}'
-                          : 'Please verify GPS coordinates',
-                      onEdit: () => widget.onNavigateToStep(4),
-                    ),
-
-                    // Failure message banner (Section 23)
-                    if (hasError && draft.uploadError != null) ...[
-                      const SizedBox(height: AppSpacing.lg),
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(AppSpacing.md),
-                        decoration: BoxDecoration(
-                          color: AppColors.errorLight,
-                          borderRadius: BorderRadius.circular(AppSpacing.sm),
-                          border: Border.all(color: AppColors.error.withValues(alpha: 0.4)),
-                        ),
-                        child: Row(
+                    Expanded(
+                      child: SingleChildScrollView(
+                        padding: const EdgeInsets.all(AppSpacing.horizontalPaddingLarge),
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Icon(Icons.cloud_off_rounded, color: AppColors.error, size: 20),
-                            const SizedBox(width: AppSpacing.sm),
-                            Expanded(
-                              child: Text(
-                                draft.uploadError!,
-                                style: AppTextStyles.bodySmall(color: AppColors.error),
+                            Text(
+                              'Verify all evidence packages before transmitting to the collation collation backend.',
+                              style: AppTextStyles.subtitle(),
+                            ),
+
+                            const SizedBox(height: AppSpacing.lg),
+
+                            // Polling Unit Header Card
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(AppSpacing.lg),
+                              decoration: BoxDecoration(
+                                color: AppColors.surface,
+                                borderRadius: AppBorderRadius.card,
+                                border: Border.all(color: AppColors.border),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text('POLLING UNIT', style: AppTextStyles.inputLabel(color: AppColors.textSecondary)),
+                                  const SizedBox(height: 2),
+                                  Text(draft.pollingUnitId, style: AppTextStyles.sectionTitle()),
+                                  Text('Ward 03 · AMAC, FCT', style: AppTextStyles.bodySmall()),
+                                ],
                               ),
                             ),
+
+                            const SizedBox(height: AppSpacing.lg),
+
+                            // Item 1: Result Figures
+                            _ReviewItemCard(
+                              title: 'RESULT FIGURES',
+                              status: figures.totalValidVotes > 0 ? 'Completed' : 'Pending',
+                              isCompleted: figures.totalValidVotes > 0,
+                              summary: 'Total Valid Votes: ${figures.totalValidVotes}\nTotal Votes Cast: ${figures.totalVotesCast}',
+                              onEdit: () => widget.onNavigateToStep(1),
+                            ),
+
+                            const SizedBox(height: AppSpacing.md),
+
+                            // Item 2: Result Form Photo
+                            _ReviewItemCard(
+                              title: 'RESULT FORM (EC8A)',
+                              status: photo != null ? 'Captured' : 'Missing',
+                              isCompleted: photo != null,
+                              summary: photo != null
+                                  ? 'Stamped with GPS & device timestamp\nSize: ${photo.fileSizeFormatted}'
+                                  : 'Please capture result sheet photo',
+                              onEdit: () => widget.onNavigateToStep(2),
+                              thumbnailPath: photo?.localPath,
+                            ),
+
+                            const SizedBox(height: AppSpacing.md),
+
+                            // Item 3: Declaration Video
+                            _ReviewItemCard(
+                              title: 'DECLARATION VIDEO',
+                              status: video != null ? 'Recorded' : 'Missing',
+                              isCompleted: video != null,
+                              summary: video != null
+                                  ? 'Official declaration video recorded\nDuration: ${video.durationSeconds ?? 0}s (${video.fileSizeFormatted})'
+                                  : 'Please record declaration video',
+                              onEdit: () => widget.onNavigateToStep(3),
+                            ),
+
+                            const SizedBox(height: AppSpacing.md),
+
+                            // Item 4: Location & Timestamp
+                            _ReviewItemCard(
+                              title: 'LOCATION & TIMESTAMP',
+                              status: location != null ? 'Captured' : 'Pending',
+                              isCompleted: location != null,
+                              summary: location != null
+                                  ? '${location.latitudeFormatted}, ${location.longitudeFormatted} (${location.accuracyFormatted})\n${DateFormat('dd MMM yyyy · HH:mm:ss').format(timestamp)}'
+                                  : 'Please verify GPS coordinates',
+                              onEdit: () => widget.onNavigateToStep(4),
+                            ),
+
+                            // Failure message banner (Section 23)
+                            if (hasError && draft.uploadError != null) ...[
+                              const SizedBox(height: AppSpacing.lg),
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(AppSpacing.md),
+                                decoration: BoxDecoration(
+                                  color: AppColors.errorLight,
+                                  borderRadius: BorderRadius.circular(AppSpacing.sm),
+                                  border: Border.all(color: AppColors.error.withValues(alpha: 0.4)),
+                                ),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(Icons.cloud_off_rounded, color: AppColors.error, size: 20),
+                                    const SizedBox(width: AppSpacing.sm),
+                                    Expanded(
+                                      child: Text(
+                                        draft.uploadError!,
+                                        style: AppTextStyles.bodySmall(color: AppColors.error),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+
+                            const SizedBox(height: AppSpacing.xxl),
+
+                            PrimaryButton(
+                              label: hasError ? 'RETRY SUBMISSION' : 'SUBMIT RESULT',
+                              isLoading: isBusy,
+                              loadingLabel: widget.controller.processingMessage ?? 'Transmitting...',
+                              enabled: draft.isComplete && !isBusy,
+                              onPressed: _onSubmit,
+                            ),
+
+                            const SizedBox(height: AppSpacing.xxl),
                           ],
                         ),
                       ),
-                    ],
-
-                    const SizedBox(height: AppSpacing.xxl),
-
-                    PrimaryButton(
-                      label: hasError ? 'RETRY SUBMISSION' : 'SUBMIT RESULT',
-                      isLoading: _isSubmitting || widget.controller.isProcessing,
-                      loadingLabel: widget.controller.processingMessage ?? 'Transmitting...',
-                      enabled: draft.isComplete && !_isSubmitting,
-                      onPressed: _onSubmit,
                     ),
-
-                    const SizedBox(height: AppSpacing.xxl),
                   ],
                 ),
-              ),
+
+                // Prominent uploading progress modal overlay
+                if (isBusy)
+                  Container(
+                    color: Colors.black.withValues(alpha: 0.65),
+                    child: Center(
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: AppSpacing.xxl),
+                        padding: const EdgeInsets.all(AppSpacing.xl),
+                        decoration: BoxDecoration(
+                          color: AppColors.surface,
+                          borderRadius: AppBorderRadius.card,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.25),
+                              blurRadius: 20,
+                              offset: const Offset(0, 10),
+                            ),
+                          ],
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const SizedBox(height: 8),
+                            const SizedBox(
+                              width: 44,
+                              height: 44,
+                              child: CircularProgressIndicator(
+                                color: AppColors.primary,
+                                strokeWidth: 3.5,
+                              ),
+                            ),
+                            const SizedBox(height: AppSpacing.lg),
+                            Text(
+                              'Uploading & Transmitting',
+                              style: AppTextStyles.sectionTitle(),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: AppSpacing.sm),
+                            Text(
+                              widget.controller.processingMessage ?? 'Securing official submission...',
+                              style: AppTextStyles.body(color: AppColors.textSecondary),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: AppSpacing.md),
+                            const LinearProgressIndicator(
+                              color: AppColors.primary,
+                              backgroundColor: AppColors.background,
+                            ),
+                            const SizedBox(height: 8),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ],
-        ),
-      ),
+          ),
+        );
+      },
     );
   }
 }
