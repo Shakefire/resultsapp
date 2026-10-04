@@ -2,6 +2,8 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { authenticateRequest, supabaseClients } from '../../../lib/auth.js';
 import { sendError, setCorsHeaders } from '../../../lib/http.js';
 
+const PASSWORD_PATTERN = /^[a-zA-Z0-9]{6}$/;
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (!setCorsHeaders(req, res)) return sendError(res, 403, 'FORBIDDEN', 'This origin is not allowed.');
   if (req.method === 'OPTIONS') return res.status(204).end();
@@ -15,8 +17,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const body = req.body as { newPassword?: unknown; currentPassword?: unknown } | undefined;
   const newPassword = body?.newPassword;
   const currentPassword = body?.currentPassword;
-  if (typeof newPassword !== 'string' || newPassword.length < 8 || newPassword.length > 256) {
-    return sendError(res, 400, 'VALIDATION_ERROR', 'Password must be at least 8 characters.');
+  if (typeof newPassword !== 'string' || !PASSWORD_PATTERN.test(newPassword)) {
+    return sendError(res, 400, 'VALIDATION_ERROR', 'Password must be 6 alphanumeric characters.');
   }
   if (typeof currentPassword !== 'string' || currentPassword.length < 1 || currentPassword.length > 256) {
     return sendError(res, 400, 'VALIDATION_ERROR', 'Enter the temporary password issued by your administrator.');
@@ -52,5 +54,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     entity_id: principal.authUser.id,
     details: {},
   });
-  res.status(200).json({ data: { changed: true } });
+
+  // Re-sign in with the new password to return renewed session tokens to the client.
+  const { data: newSession } = await authClient.auth.signInWithPassword({
+    email: internalEmail,
+    password: newPassword,
+  });
+
+  res.status(200).json({
+    data: {
+      changed: true,
+      accessToken: newSession?.session?.access_token ?? null,
+      refreshToken: newSession?.session?.refresh_token ?? null,
+      expiresAt: newSession?.session?.expires_at ?? null,
+    },
+  });
 }

@@ -135,13 +135,11 @@ class VercelAuthService implements AuthService {
       });
       final accessToken = session['accessToken'];
       final refreshToken = session['refreshToken'];
-      if (accessToken is! String || accessToken.isEmpty || refreshToken is! String) {
+      if (accessToken is String && accessToken.isNotEmpty && refreshToken is String) {
+        _api.setSession(accessToken: accessToken, refreshToken: refreshToken);
+      } else {
         _api.clearSession();
-        throw const AuthException(
-          'Password changed, but the session could not be renewed. Sign in again with your new password.',
-        );
       }
-      _api.setSession(accessToken: accessToken, refreshToken: refreshToken);
     } on AuthException {
       rethrow;
     } on VercelApiException catch (error) {
