@@ -5,6 +5,7 @@ import adminGeography from '../server/routes/v1/admin/geography.js';
 import users from '../server/routes/v1/admin/users.js';
 import login from '../server/routes/v1/auth/login.js';
 import password from '../server/routes/v1/auth/password.js';
+import refresh from '../server/routes/v1/auth/refresh.js';
 import openElection from '../server/routes/v1/elections/open.js';
 import downloadUrl from '../server/routes/v1/evidence/download-url.js';
 import uploadUrl from '../server/routes/v1/evidence/upload-url.js';
@@ -30,6 +31,7 @@ const routes: Record<string, Handler> = {
   '/api/v1/admin/users': users,
   '/api/v1/auth/login': login,
   '/api/v1/auth/password': password,
+  '/api/v1/auth/refresh': refresh,
   '/api/v1/elections/open': openElection,
   '/api/v1/evidence/download-url': downloadUrl,
   '/api/v1/evidence/upload-url': uploadUrl,
