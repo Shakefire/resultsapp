@@ -1,4 +1,4 @@
-// lib/features/result_submission/services/device_location_service.dart
+import 'package:camera/camera.dart';
 import 'package:geolocator/geolocator.dart';
 import '../models/location_snapshot.dart';
 
@@ -16,6 +16,24 @@ class DeviceLocationService {
 
   /// Configurable maximum allowed accuracy in meters (Section 27).
   static const double maxAllowedAccuracyMeters = 25.0;
+
+  /// Global in-memory cached location snapshot.
+  static LocationSnapshot? cachedLocation;
+
+  /// Proactively requests Camera and Location permissions and warms up the GPS cache.
+  static Future<void> warmUpPermissionsAndLocation() async {
+    try {
+      // 1. Warm up camera hardware/permission
+      await availableCameras();
+    } catch (_) {}
+
+    try {
+      // 2. Warm up location permission & seed cache
+      final service = DeviceLocationService();
+      await service.requestPermission();
+      await service.getCurrentLocation(allowCached: false);
+    } catch (_) {}
+  }
 
   /// Checks the current location service and permission state.
   Future<LocationServiceStatus> checkStatus() async {
@@ -42,7 +60,10 @@ class DeviceLocationService {
       return LocationServiceStatus.serviceDisabled;
     }
 
-    LocationPermission permission = await Geolocator.requestPermission();
+    LocationPermission permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
     if (permission == LocationPermission.denied) {
       return LocationServiceStatus.permissionDenied;
     }
@@ -64,11 +85,20 @@ class DeviceLocationService {
   }
 
   /// Acquires real GPS coordinates from the device hardware (Section 2 & 26).
-  Future<LocationSnapshot> getCurrentLocation() async {
+  /// When [allowCached] is true, returns recent cached location instantly.
+  Future<LocationSnapshot> getCurrentLocation({bool allowCached = true}) async {
+    if (allowCached && cachedLocation != null && cachedLocation!.isAccurate) {
+      final age = DateTime.now().difference(cachedLocation!.capturedAt);
+      if (age < const Duration(minutes: 30)) {
+        return cachedLocation!;
+      }
+    }
+
     final status = await checkStatus();
     if (status != LocationServiceStatus.ready) {
       final reqStatus = await requestPermission();
       if (reqStatus != LocationServiceStatus.ready) {
+        if (cachedLocation != null) return cachedLocation!;
         throw LocationException(
           _statusToMessage(reqStatus),
           status: reqStatus,
@@ -76,23 +106,49 @@ class DeviceLocationService {
       }
     }
 
+    // Try last known position first (instantaneous from device GPS subsystem)
+    try {
+      final lastKnown = await Geolocator.getLastKnownPosition();
+      if (lastKnown != null && lastKnown.accuracy <= maxAllowedAccuracyMeters) {
+        final snapshot = LocationSnapshot(
+          latitude: lastKnown.latitude,
+          longitude: lastKnown.longitude,
+          accuracyMeters: lastKnown.accuracy,
+          capturedAt: lastKnown.timestamp,
+          isMock: lastKnown.isMocked,
+        );
+        cachedLocation = snapshot;
+        final age = DateTime.now().difference(lastKnown.timestamp);
+        if (age < const Duration(minutes: 10)) {
+          return snapshot;
+        }
+      }
+    } catch (_) {}
+
+    // Quick GPS lock with 4-second timeout to prevent UI freezes
     try {
       final Position position = await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
           accuracy: LocationAccuracy.high,
-          timeLimit: Duration(seconds: 15),
+          timeLimit: Duration(seconds: 4),
         ),
       );
 
-      return LocationSnapshot(
+      final snapshot = LocationSnapshot(
         latitude: position.latitude,
         longitude: position.longitude,
         accuracyMeters: position.accuracy,
         capturedAt: position.timestamp,
         isMock: position.isMocked,
       );
+      cachedLocation = snapshot;
+      return snapshot;
     } catch (e) {
-      throw LocationException('Unable to acquire a real GPS fix. Move to an area with location coverage and try again.', status: LocationServiceStatus.error);
+      if (cachedLocation != null) return cachedLocation!;
+      throw LocationException(
+        'Unable to acquire a real GPS fix. Move to an area with location coverage and try again.',
+        status: LocationServiceStatus.error,
+      );
     }
   }
 

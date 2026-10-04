@@ -1,13 +1,8 @@
 import { DeleteObjectCommand, GetObjectCommand, HeadObjectCommand, PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { supabaseClients } from './auth.js';
 
-function requiredEnv(name: string): string {
-  const value = process.env[name];
-  if (!value) throw new Error(`Missing required environment variable: ${name}`);
-  return value;
-}
-
-export const evidenceBucket = () => requiredEnv('R2_BUCKET_NAME');
+export const evidenceBucket = () => process.env.R2_BUCKET_NAME || 'storageapp';
 
 export function withEvidencePrefix(key: string): string {
   const prefix = (process.env.R2_KEY_PREFIX ?? 'inecresults/').trim();
@@ -19,32 +14,97 @@ export function withEvidencePrefix(key: string): string {
 }
 
 let client: S3Client | undefined;
-function r2Client(): S3Client {
+function r2Client(): S3Client | null {
+  const accountId = process.env.R2_ACCOUNT_ID?.trim();
+  const accessKeyId = process.env.R2_ACCESS_KEY_ID?.trim();
+  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY?.trim();
+  if (!accountId || !accessKeyId || !secretAccessKey || accountId.length !== 32) {
+    return null;
+  }
   if (client) return client;
-  const accountId = requiredEnv('R2_ACCOUNT_ID');
   client = new S3Client({
     region: 'auto',
     endpoint: `https://${accountId}.r2.cloudflarestorage.com`,
+    forcePathStyle: true,
     credentials: {
-      accessKeyId: requiredEnv('R2_ACCESS_KEY_ID'),
-      secretAccessKey: requiredEnv('R2_SECRET_ACCESS_KEY'),
+      accessKeyId,
+      secretAccessKey,
     },
   });
   return client;
 }
 
+const SUPABASE_BUCKET = 'evidence';
+
+async function ensureSupabaseBucket() {
+  const { adminClient } = supabaseClients();
+  try {
+    await adminClient.storage.createBucket(SUPABASE_BUCKET, { public: false });
+  } catch (_) {}
+}
+
 export async function createUploadUrl(key: string, contentType: string): Promise<string> {
-  return getSignedUrl(r2Client(), new PutObjectCommand({ Bucket: evidenceBucket(), Key: key, ContentType: contentType }), { expiresIn: 300 });
+  const r2 = r2Client();
+  if (r2) {
+    try {
+      return await getSignedUrl(r2, new PutObjectCommand({ Bucket: evidenceBucket(), Key: key, ContentType: contentType }), { expiresIn: 300 });
+    } catch (e) {
+      console.warn('R2 presigned upload URL creation failed, falling back to Supabase Storage', e);
+    }
+  }
+  await ensureSupabaseBucket();
+  const { adminClient } = supabaseClients();
+  const { data, error } = await adminClient.storage.from(SUPABASE_BUCKET).createSignedUploadUrl(key, { upsert: true });
+  if (error || !data) {
+    throw new Error(`Failed to create signed upload URL: ${error?.message ?? 'unknown'}`);
+  }
+  return data.signedUrl;
 }
 
 export async function createDownloadUrl(key: string): Promise<string> {
-  return getSignedUrl(r2Client(), new GetObjectCommand({ Bucket: evidenceBucket(), Key: key }), { expiresIn: 300 });
+  const r2 = r2Client();
+  if (r2) {
+    try {
+      return await getSignedUrl(r2, new GetObjectCommand({ Bucket: evidenceBucket(), Key: key }), { expiresIn: 300 });
+    } catch (e) {
+      console.warn('R2 presigned download URL creation failed, falling back to Supabase Storage', e);
+    }
+  }
+  const { adminClient } = supabaseClients();
+  const { data, error } = await adminClient.storage.from(SUPABASE_BUCKET).createSignedUrl(key, 300);
+  if (error || !data) {
+    throw new Error(`Failed to create signed download URL: ${error?.message ?? 'unknown'}`);
+  }
+  return data.signedUrl;
 }
 
-export async function inspectObject(key: string) {
-  return r2Client().send(new HeadObjectCommand({ Bucket: evidenceBucket(), Key: key }));
+export async function inspectObject(key: string): Promise<{ ContentLength?: number; ContentType?: string }> {
+  const r2 = r2Client();
+  if (r2) {
+    try {
+      const res = await r2.send(new HeadObjectCommand({ Bucket: evidenceBucket(), Key: key }));
+      return { ContentLength: res.ContentLength, ContentType: res.ContentType };
+    } catch (_) {}
+  }
+  const { adminClient } = supabaseClients();
+  const parts = key.split('/');
+  const fileName = parts.pop()!;
+  const folder = parts.join('/');
+  const { data } = await adminClient.storage.from(SUPABASE_BUCKET).list(folder, { search: fileName });
+  const file = data?.find((f) => f.name === fileName);
+  if (!file) throw new Error('Object not found in storage');
+  const size = file.metadata?.size ?? file.metadata?.contentLength ?? 0;
+  const mime = file.metadata?.mimetype ?? 'application/octet-stream';
+  return { ContentLength: size, ContentType: mime };
 }
 
 export async function deleteObject(key: string): Promise<void> {
-  await r2Client().send(new DeleteObjectCommand({ Bucket: evidenceBucket(), Key: key }));
+  const r2 = r2Client();
+  if (r2) {
+    try {
+      await r2.send(new DeleteObjectCommand({ Bucket: evidenceBucket(), Key: key }));
+    } catch (_) {}
+  }
+  const { adminClient } = supabaseClients();
+  await adminClient.storage.from(SUPABASE_BUCKET).remove([key]);
 }

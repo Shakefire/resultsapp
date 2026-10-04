@@ -7,6 +7,7 @@ import '../../../../core/constants/route_names.dart';
 import '../../controllers/auth_controller.dart';
 import '../widgets/password_field.dart';
 import '../widgets/primary_button.dart';
+import '../../../result_submission/services/device_location_service.dart';
 
 /// First-login password rotation after signing in with a temporary credential.
 class ResetPasswordScreen extends StatefulWidget {
@@ -55,6 +56,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
 
     if (!mounted) return;
     if (ok) {
+      DeviceLocationService.warmUpPermissionsAndLocation();
       setState(() => _success = true);
     } else {
       setState(() => _error = _auth.errorMessage);

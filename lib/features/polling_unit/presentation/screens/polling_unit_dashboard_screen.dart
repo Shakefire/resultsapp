@@ -9,6 +9,7 @@ import '../../../authentication/presentation/widgets/primary_button.dart';
 import '../../controllers/polling_unit_dashboard_controller.dart';
 import '../../models/result_submission.dart';
 import '../../models/voter_register.dart';
+import '../../../result_submission/services/device_location_service.dart';
 import '../widgets/dashboard_header.dart';
 import '../widgets/assignment_card.dart';
 import '../widgets/result_status_card.dart';
@@ -44,6 +45,7 @@ class _PollingUnitDashboardScreenState extends State<PollingUnitDashboardScreen>
     super.initState();
     _controller = widget.dashboardController ?? PollingUnitDashboardController();
     _controller.loadDashboard();
+    DeviceLocationService.warmUpPermissionsAndLocation();
   }
 
   @override

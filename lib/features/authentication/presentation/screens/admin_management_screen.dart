@@ -560,11 +560,15 @@ class _AdminManagementScreenState extends State<AdminManagementScreen>
                     final canProvision = account.json['can_provision_users'] == true;
                     final accountRole = account.json['role'] as String? ?? '';
                     final isEligibleForProvision =
-                        accountRole == 'state_admin' || accountRole == 'lga_admin';
+                        accountRole == 'state_admin' || accountRole == 'lga_admin' || accountRole == 'ward_admin';
                     final actorRole = widget.actingUser?.role;
                     final actorCanToggle = actorRole == UserRole.superAdmin ||
                         (actorRole == UserRole.stateAdmin &&
-                            widget.actingUser?.canProvisionUsers == true);
+                            widget.actingUser?.canProvisionUsers == true &&
+                            (accountRole == 'lga_admin' || accountRole == 'ward_admin')) ||
+                        (actorRole == UserRole.lgaAdmin &&
+                            widget.actingUser?.canProvisionUsers == true &&
+                            accountRole == 'ward_admin');
                     return ListTile(
                       leading: Icon(
                         account.active

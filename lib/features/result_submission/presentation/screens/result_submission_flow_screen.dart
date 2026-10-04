@@ -11,6 +11,7 @@ import 'capture_result_form_screen.dart';
 import 'declaration_video_screen.dart';
 import 'location_verification_screen.dart';
 import 'review_submission_screen.dart';
+import '../../services/device_location_service.dart';
 
 /// Master workflow coordinator screen hosting the 5-step evidence capture flow (Section 1).
 class ResultSubmissionFlowScreen extends StatefulWidget {
@@ -40,6 +41,7 @@ class _ResultSubmissionFlowScreenState
     _controller = widget.controller ??
         ResultSubmissionController(pollingUnitId: widget.pollingUnitId);
     _controller.initialize();
+    DeviceLocationService.warmUpPermissionsAndLocation();
   }
 
   @override

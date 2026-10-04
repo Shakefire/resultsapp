@@ -114,14 +114,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (action === 'reset_password' && !(target as any).is_active) return sendError(res, 409, 'CONFLICT', 'Reactivate the account before issuing a temporary password.');
 
   if (action === 'toggle_provision_power') {
-    // Only super_admin or state_admin can grant/revoke provision power.
-    const actorCanToggle = isSuperAdmin || (isDelegated && principal.profile.role === 'state_admin');
-    if (!actorCanToggle) {
-      return sendError(res, 403, 'FORBIDDEN', 'Only Super Admin or State Admin can grant provisioning power.');
-    }
     const targetRole = (target as any).role as string;
-    if (targetRole !== 'state_admin' && targetRole !== 'lga_admin') {
-      return sendError(res, 400, 'VALIDATION_ERROR', 'Provisioning power can only be granted to State Admin or LGA Admin.');
+    const actorCanToggle = isSuperAdmin ||
+      (isDelegated && principal.profile.role === 'state_admin' && (targetRole === 'lga_admin' || targetRole === 'ward_admin')) ||
+      (isDelegated && principal.profile.role === 'lga_admin' && targetRole === 'ward_admin');
+    if (!actorCanToggle) {
+      return sendError(res, 403, 'FORBIDDEN', 'You do not have permission to grant or revoke provisioning power for this role.');
+    }
+    if (targetRole !== 'state_admin' && targetRole !== 'lga_admin' && targetRole !== 'ward_admin') {
+      return sendError(res, 400, 'VALIDATION_ERROR', 'Provisioning power can only be granted to State Admin, LGA Admin, or Ward Admin.');
     }
     const newValue = !(target as any).can_provision_users;
     const { error: updateError } = await adminClient.from('user_profiles')

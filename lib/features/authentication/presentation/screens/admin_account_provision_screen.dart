@@ -44,14 +44,11 @@ class _AdminAccountProvisionScreenState
       // State Admin delegated: cannot create another state_admin
       return all.where((r) => r != UserRole.stateAdmin).toList();
     }
-    if (!_isSuperAdmin) {
-      // LGA Admin delegated: only ward_admin and polling_unit_staff
-      return all
-          .where(
-            (r) =>
-                r == UserRole.wardAdmin || r == UserRole.pollingUnitStaff,
-          )
-          .toList();
+    if (widget.actingUser?.role == UserRole.lgaAdmin) {
+      return [UserRole.wardAdmin, UserRole.pollingUnitStaff];
+    }
+    if (widget.actingUser?.role == UserRole.wardAdmin) {
+      return [UserRole.pollingUnitStaff];
     }
     return all;
   }
@@ -74,9 +71,18 @@ class _AdminAccountProvisionScreenState
 
   /// True when the selected role allows granting provision power and the
   /// acting user has authority to grant it.
-  bool get _canGrantProvisionPower =>
-      (_isSuperAdmin || _isStateAdminDelegated) &&
-      (_role == UserRole.stateAdmin || _role == UserRole.lgaAdmin);
+  bool get _canGrantProvisionPower {
+    if (_isSuperAdmin) {
+      return _role == UserRole.stateAdmin || _role == UserRole.lgaAdmin || _role == UserRole.wardAdmin;
+    }
+    if (widget.actingUser?.role == UserRole.stateAdmin) {
+      return _role == UserRole.lgaAdmin || _role == UserRole.wardAdmin;
+    }
+    if (widget.actingUser?.role == UserRole.lgaAdmin) {
+      return _role == UserRole.wardAdmin;
+    }
+    return false;
+  }
 
   bool get _usingCachedGeography => [
     ..._states,
@@ -104,9 +110,13 @@ class _AdminAccountProvisionScreenState
         _state = actorState;
         _loadingStates = false; // Will be set properly after states load
       }
-      if (widget.actingUser?.role == UserRole.lgaAdmin) {
+      if (widget.actingUser?.role == UserRole.lgaAdmin || widget.actingUser?.role == UserRole.wardAdmin) {
         final actorLga = widget.actingUser?.lgaId;
         if (actorLga != null) _lga = actorLga;
+      }
+      if (widget.actingUser?.role == UserRole.wardAdmin) {
+        final actorWard = widget.actingUser?.wardId;
+        if (actorWard != null) _ward = actorWard;
       }
     }
   }

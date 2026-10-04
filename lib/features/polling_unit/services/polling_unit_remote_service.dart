@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 
+import 'package:camera/camera.dart';
+
 import '../../../core/services/vercel_api_client.dart';
 import '../../result_submission/models/evidence_metadata.dart';
 import '../../result_submission/models/location_snapshot.dart';
@@ -95,9 +97,26 @@ class PollingUnitRemoteService {
   }
 
   Future<String> _uploadEvidence(EvidenceMetadata metadata, String purpose, String electionId) async {
-    final file = File(metadata.localPath);
-    if (!await file.exists()) throw const VercelApiException('A required evidence file is no longer available on this device.');
-    final size = await file.length();
+    final int size;
+    List<int>? fileBytes;
+    if (kIsWeb) {
+      final xfile = XFile(metadata.localPath);
+      fileBytes = await xfile.readAsBytes();
+      size = fileBytes.length;
+    } else {
+      final file = File(metadata.localPath);
+      if (!await file.exists()) {
+        try {
+          final xfile = XFile(metadata.localPath);
+          fileBytes = await xfile.readAsBytes();
+          size = fileBytes.length;
+        } catch (_) {
+          throw const VercelApiException('A required evidence file is no longer available on this device.');
+        }
+      } else {
+        size = await file.length();
+      }
+    }
     final maximumBytes = purpose == 'result_photo' ? 15 * 1024 * 1024 : 150 * 1024 * 1024;
     if (size <= 0 || size > maximumBytes) {
       throw VercelApiException('The $purpose file must be between 1 byte and ${maximumBytes ~/ (1024 * 1024)} MB.');
@@ -109,7 +128,7 @@ class PollingUnitRemoteService {
     final contentType = authorization['contentType'] as String;
     if (metadata.mimeType != contentType) throw const VercelApiException('Evidence file type does not match the required format.');
     await _api.putFile(authorization['uploadUrl'] as String, metadata.localPath,
-      contentType: contentType, contentLength: size);
+      contentType: contentType, contentLength: size, bytes: fileBytes);
     return authorization['objectKey'] as String;
   }
 }

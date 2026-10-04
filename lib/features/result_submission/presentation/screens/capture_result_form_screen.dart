@@ -88,7 +88,7 @@ class _CaptureResultFormScreenState extends State<CaptureResultFormScreen>
 
       final controller = CameraController(
         backCamera,
-        ResolutionPreset.high,
+        ResolutionPreset.medium,
         enableAudio: false,
         imageFormatGroup: ImageFormatGroup.jpeg,
       );

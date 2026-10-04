@@ -79,6 +79,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const actorRole = principal.profile.role;
     const actorState = principal.profile.state_code;
     const actorLga = principal.profile.lga_code;
+    const actorWard = principal.profile.ward_code;
     if (stateCode !== actorState) {
       return sendError(res, 403, 'FORBIDDEN', 'You can only provision accounts within your assigned state.');
     }
@@ -90,16 +91,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         return sendError(res, 403, 'FORBIDDEN', 'LGA Admin can only create ward-level or polling-unit accounts.');
       }
     }
+    if (actorRole === 'ward_admin') {
+      if (lgaCode !== actorLga || wardCode !== actorWard) {
+        return sendError(res, 403, 'FORBIDDEN', 'You can only provision accounts within your assigned Ward.');
+      }
+      if (targetRole !== 'polling_unit_staff') {
+        return sendError(res, 403, 'FORBIDDEN', 'Ward Admin can only create polling unit accounts.');
+      }
+    }
     if (actorRole === 'state_admin' && targetRole === 'state_admin') {
       return sendError(res, 403, 'FORBIDDEN', 'State Admin cannot create other State Admin accounts.');
     }
   }
 
-  // Only super_admin or state_admin may grant provision power, only to state_admin / lga_admin.
+  // Granting provision power down the chain:
+  // Super Admin can grant to state_admin, lga_admin, ward_admin
+  // State Admin can grant to lga_admin, ward_admin
+  // LGA Admin can grant to ward_admin
   const requestedProvisionPower = input.canProvisionUsers === true;
-  const canGrant = isSuperAdmin || (isDelegated && principal.profile.role === 'state_admin');
-  const provisionPower = requestedProvisionPower && canGrant &&
-    (targetRole === 'state_admin' || targetRole === 'lga_admin');
+  const canGrant = isSuperAdmin ||
+    (isDelegated && principal.profile.role === 'state_admin' && (targetRole === 'lga_admin' || targetRole === 'ward_admin')) ||
+    (isDelegated && principal.profile.role === 'lga_admin' && targetRole === 'ward_admin');
+  const provisionPower = requestedProvisionPower && canGrant;
 
   // Verify the complete hierarchy exists before creating an Auth account.
   const { data: location, error: locationError } = targetRole === 'polling_unit_staff'

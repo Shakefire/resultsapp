@@ -9,6 +9,100 @@ import 'package:path_provider/path_provider.dart';
 import '../models/location_snapshot.dart';
 import '../models/evidence_metadata.dart';
 
+class _ImageProcessingParams {
+  final Uint8List rawBytes;
+  final String pollingUnitId;
+  final double latitude;
+  final double longitude;
+  final double accuracyMeters;
+  final int timestampMillis;
+
+  const _ImageProcessingParams({
+    required this.rawBytes,
+    required this.pollingUnitId,
+    required this.latitude,
+    required this.longitude,
+    required this.accuracyMeters,
+    required this.timestampMillis,
+  });
+}
+
+Uint8List _processImageInIsolate(_ImageProcessingParams params) {
+  final img.Image? decodedImage = img.decodeImage(params.rawBytes);
+  if (decodedImage == null) {
+    throw Exception('Unable to decode captured camera image.');
+  }
+
+  // Ensure image is oriented correctly
+  img.Image orientedImage = img.bakeOrientation(decodedImage);
+
+  // Downscale if wider than 1600px for high performance while maintaining full document legibility
+  if (orientedImage.width > 1600) {
+    orientedImage = img.copyResize(orientedImage, width: 1600);
+  }
+
+  final int imageWidth = orientedImage.width;
+  final double scale = (imageWidth / 1200.0).clamp(1.0, 3.5);
+  final int margin = (24 * scale).round();
+  final int boxWidth = (300 * scale).round();
+  final int boxHeight = (150 * scale).round();
+
+  final int boxX = imageWidth - boxWidth - margin;
+  final int boxY = margin;
+
+  // Semi-transparent dark background for maximum legibility over white sheets
+  img.fillRect(
+    orientedImage,
+    x1: boxX,
+    y1: boxY,
+    x2: boxX + boxWidth,
+    y2: boxY + boxHeight,
+    color: img.ColorRgba8(18, 28, 22, 210), // Deep institutional charcoal tint
+  );
+
+  // Subtle 2px primary green top-accent border
+  img.fillRect(
+    orientedImage,
+    x1: boxX,
+    y1: boxY,
+    x2: boxX + boxWidth,
+    y2: boxY + (4 * scale).round(),
+    color: img.ColorRgba8(8, 116, 67, 255), // AppColors.primary green
+  );
+
+  final dt = DateTime.fromMillisecondsSinceEpoch(params.timestampMillis);
+  final timeFormat = DateFormat('HH:mm:ss');
+  final dateFormat = DateFormat('dd MMM yyyy').format(dt).toUpperCase();
+  final tzName = EvidenceComposerService.getTimeZoneAbbreviation(dt);
+
+  final List<String> lines = [
+    params.pollingUnitId.toUpperCase(),
+    'LAT ${params.latitude.toStringAsFixed(5)}',
+    'LON ${params.longitude.toStringAsFixed(5)}',
+    'ACCURACY ±${params.accuracyMeters.toStringAsFixed(0)}m',
+    '$dateFormat · ${timeFormat.format(dt)} $tzName',
+  ];
+
+  int textY = boxY + (14 * scale).round();
+  final int textX = boxX + (16 * scale).round();
+  final int lineSpacing = (24 * scale).round();
+
+  for (final line in lines) {
+    img.drawString(
+      orientedImage,
+      line,
+      font: scale > 1.8 ? img.arial24 : img.arial14,
+      x: textX,
+      y: textY,
+      color: img.ColorRgba8(255, 255, 255, 255),
+    );
+    textY += lineSpacing;
+  }
+
+  final List<int> encodedBytes = img.encodeJpg(orientedImage, quality: 88);
+  return Uint8List.fromList(encodedBytes);
+}
+
 /// High-performance evidence composition service.
 /// Stamps official verification metadata into the TOP-RIGHT CORNER of captured result sheets (Section 12–17).
 class EvidenceComposerService {
@@ -38,15 +132,6 @@ class EvidenceComposerService {
       rawBytes = await sourceFile.readAsBytes();
     }
 
-    // Decode original image
-    final img.Image? decodedImage = img.decodeImage(rawBytes);
-    if (decodedImage == null) {
-      throw Exception('Unable to decode captured camera image.');
-    }
-
-    // Ensure image is oriented correctly
-    final img.Image orientedImage = img.bakeOrientation(decodedImage);
-
     final String originalCopyPath;
     final String processedPath;
     final timestampStr = DateFormat('yyyyMMdd_HHmmss').format(deviceTimestamp);
@@ -71,70 +156,18 @@ class EvidenceComposerService {
       await File(sourceImagePath).copy(originalCopyPath);
     }
 
-    // ─── Compose Top-Right Metadata Overlay (Section 12–15) ─────────────────
-    final int imageWidth = orientedImage.width;
-
-    // Relative sizing for high-DPI camera photos
-    final double scale = (imageWidth / 1200.0).clamp(1.0, 3.5);
-    final int margin = (24 * scale).round();
-    final int boxWidth = (300 * scale).round();
-    final int boxHeight = (150 * scale).round();
-
-    final int boxX = imageWidth - boxWidth - margin;
-    final int boxY = margin;
-
-    // Semi-transparent dark background for maximum legibility over white sheets
-    img.fillRect(
-      orientedImage,
-      x1: boxX,
-      y1: boxY,
-      x2: boxX + boxWidth,
-      y2: boxY + boxHeight,
-      color: img.ColorRgba8(18, 28, 22, 210), // Deep institutional charcoal tint
+    // Run heavy image operations in a background isolate
+    final params = _ImageProcessingParams(
+      rawBytes: rawBytes,
+      pollingUnitId: pollingUnitId,
+      latitude: location.latitude,
+      longitude: location.longitude,
+      accuracyMeters: location.accuracyMeters,
+      timestampMillis: deviceTimestamp.millisecondsSinceEpoch,
     );
 
-    // Subtle 2px primary green top-accent border
-    img.fillRect(
-      orientedImage,
-      x1: boxX,
-      y1: boxY,
-      x2: boxX + boxWidth,
-      y2: boxY + (4 * scale).round(),
-      color: img.ColorRgba8(8, 116, 67, 255), // AppColors.primary green
-    );
+    final Uint8List encodedBytes = await compute(_processImageInIsolate, params);
 
-    // Format metadata strings
-    final timeFormat = DateFormat('HH:mm:ss');
-    final dateFormat = DateFormat('dd MMM yyyy').format(deviceTimestamp).toUpperCase();
-    final tzName = _getTimeZoneAbbreviation(deviceTimestamp);
-
-    final List<String> lines = [
-      pollingUnitId.toUpperCase(),
-      'LAT ${location.latitude.toStringAsFixed(5)}',
-      'LON ${location.longitude.toStringAsFixed(5)}',
-      'ACCURACY ±${location.accuracyMeters.toStringAsFixed(0)}m',
-      '$dateFormat · ${timeFormat.format(deviceTimestamp)} $tzName',
-    ];
-
-    // Draw typography lines inside the metadata safe zone
-    int textY = boxY + (14 * scale).round();
-    final int textX = boxX + (16 * scale).round();
-    final int lineSpacing = (24 * scale).round();
-
-    for (final line in lines) {
-      img.drawString(
-        orientedImage,
-        line,
-        font: scale > 1.8 ? img.arial24 : img.arial14,
-        x: textX,
-        y: textY,
-        color: img.ColorRgba8(255, 255, 255, 255),
-      );
-      textY += lineSpacing;
-    }
-
-    // High quality JPEG encode (Section 17 - readability > compression)
-    final List<int> encodedBytes = img.encodeJpg(orientedImage, quality: 92);
     if (!kIsWeb) {
       final processedFile = File(processedPath);
       await processedFile.writeAsBytes(encodedBytes);
@@ -154,7 +187,7 @@ class EvidenceComposerService {
     );
   }
 
-  static String _getTimeZoneAbbreviation(DateTime dt) {
+  static String getTimeZoneAbbreviation(DateTime dt) {
     final offsetHours = dt.timeZoneOffset.inHours;
     if (offsetHours == 1) return 'WAT'; // West Africa Time (Nigeria)
     if (offsetHours == 0) return 'UTC';
