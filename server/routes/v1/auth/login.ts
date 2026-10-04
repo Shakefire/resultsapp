@@ -23,10 +23,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const { adminClient } = supabaseClients();
+    const targetUserId = (userId === 'SA-HQ') ? 'SUPERADMIN' : userId;
     const { data: profile, error: profileError } = await adminClient
       .from('user_profiles')
       .select('user_id,is_active')
-      .eq('user_id', userId)
+      .eq('user_id', targetUserId)
       .maybeSingle();
 
     // Use one response for unknown and inactive IDs to avoid account enumeration.
